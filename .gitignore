@@ -3,3 +3,6 @@
 
 #dependences
 node_modules
+.idea
+.vscode
+
