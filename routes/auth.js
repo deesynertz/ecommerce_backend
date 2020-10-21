@@ -6,6 +6,27 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 
 
+// RETURN ROLES EXCEPT FOR Admin
+router.get('/roles', (req, res) => {
+    helper.database.table('roles')
+        .sort({roleId: 1})
+        .filter ({ roleId : {$gt : 1}})
+        .getAll()
+        .then(roles => {
+            if (roles.length > 0) {
+                res.status(200).json({
+                    count: roles.length,
+                    roles: roles
+                });
+            } else {
+                res.json({message: "No any Role found"});
+            }
+        })
+})
+
+
+
+
 // REGISTER ROUTE
 // TODO: HANDLE THE DUPLICATE EXIST EMAIL
 router.post('/register', [
@@ -29,6 +50,7 @@ router.post('/register', [
     } else {
         let {firstName, lastName, region, district, phone, email, username} = req.body;
         let password = await bcrypt.hash(req.body.password, 10)
+        let role_id = req.body.role_id;
 
         helper.database.table('users').insert({
             firstName: firstName,
@@ -45,7 +67,7 @@ router.post('/register', [
                         username: username,
                         password: password,
                         user_id: lastId,
-                        role_id: 2
+                        role_id: role_id
                     }).catch(err => console.log(err));
                 res.status(201).json({
                     success: 1,
@@ -61,20 +83,42 @@ router.post('/register', [
     }
 });
 
-
 // LOGIN ROUTE
-router.post('/login', [helper.isPasswordAndUserMatch], (req, res) => {
-    let token = jwt.sign({state: 'true', username: req.body.username}, helper.secret, {
-        algorithm: 'HS512',
-        expiresIn: '4h'
-    });
-    res.json({
-        token: token,
-        auth: true,
-        role: 1,
-        username: req.body.username
-    });
-});
+router.post('/login', async (req, res) =>{
+    const myPlaintextPassword = req.body.password;
+    const myUsername = req.body.username;
+
+    const login_user = await helper.database.table('login')
+        .filter({$or: [{username: myUsername}]}).get();
+    if (login_user) {
+        const match = await bcrypt.compare(myPlaintextPassword, login_user.password);
+        if (match) {
+            let token = jwt.sign(
+                {state: 'true', username: req.body.username},
+                helper.secret, {
+                    algorithm: 'HS512',
+                    expiresIn: '4h'
+            });
+            res.status(201).json({
+                success_code: 1,
+                token: token,
+                auth: true,
+                role: login_user.role_id,
+                username: req.body.username
+            });
+        } else {
+            res.status(201).json({
+                success_code: 0,
+                message: "incorrect password!!"
+            });
+        }
+    } else {
+        res.status(201).json({
+            success_code: 0,
+            message: "Username or password incorrect"
+        });
+    }
+})
 
 // FIND USER BY EMAIL
 router.get('/:email', (req, res) => {

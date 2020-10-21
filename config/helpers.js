@@ -16,27 +16,27 @@ module.exports = {
     database: db,
     secret: secret_Code,
     isPasswordAndUserMatch: async (req, res, next) => {
-        const myPlaintextPassword = req.body.password;
-        const myUsername = req.body.username;
-
-        const login_user = await db.table('login').filter({$or: [{username: myUsername}]}).get();
-        if (login_user) {
-            const match = await bcrypt.compare(myPlaintextPassword, login_user.password);
-            console.log(login_user.password);
-            if (match) {
-                req.username = login_user.username;
-                next();
-            } else {
-                res.status(401).json({
-                    success: 0,
-                    message: "Username or password incorrect"
-                });
-            }
-        } else {
-            res.status(401).json({
-                success: 0,
-                message: "Username or password incorrect"
-            });
-        }
+        // const myPlaintextPassword = req.body.password;
+        // const myUsername = req.body.username;
+        //
+        // const login_user = await db.table('login').filter({$or: [{username: myUsername}]}).get();
+        // if (login_user) {
+        //     const match = await bcrypt.compare(myPlaintextPassword, login_user.password);
+        //     console.log(login_user.password);
+        //     if (match) {
+        //         req.username = login_user.username;
+        //         next();
+        //     } else {
+        //         res.status(401).json({
+        //             success: 0,
+        //             message: "Username or password incorrect"
+        //         });
+        //     }
+        // } else {
+        //     res.status(401).json({
+        //         success: 0,
+        //         message: "Username or password incorrect"
+        //     });
+        // }
     }
 }
