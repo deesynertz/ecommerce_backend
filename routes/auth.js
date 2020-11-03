@@ -97,7 +97,7 @@ router.post('/login', async (req, res) =>{
                 {state: 'true', username: req.body.username},
                 helper.secret, {
                     algorithm: 'HS512',
-                    expiresIn: '4h'
+                    expiresIn: '1h'
             });
             res.status(201).json({
                 success_code: 1,

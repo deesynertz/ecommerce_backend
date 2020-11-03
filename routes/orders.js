@@ -8,21 +8,21 @@ router.get('/', function (req, res) {
         .join([
             {
                 table: 'orders as o',
-                on: 'o.id = od.order_id'
+                on: 'o.orderId = od.order_id'
             },
             {
-                table: 'product as p',
-                on: 'p.productid = od.item'
+                table: 'products as p',
+                on: 'p.productId = od.item'
             },
             {
-                table: 'customer as cu',
-                on: 'cu.customerid = o.buyer'
+                table: 'users as u',
+                on: 'u.userId = o.buyer'
             }
         ])
         .withFields([
-            'cu.customerid as cid', 'cu.lastName',
+            'u.userId as uid', 'u.lastName',
             'p.productid as pid', 'p.productName as title', 'p.price', 'p.quantity', 'p.description', 'p.image',
-            'o.orderDate', 'o.id as id',
+            'o.orderDate', 'orderId as id',
             'od.quantity'
         ])
         .sort({id: 1})
@@ -132,5 +132,54 @@ router.post('/payment', (req, res) => {
         res.status(200).json({success: true});
     }, 3000);
 });
+
+
+
+
+// ALL ORDER BELONG TO SELLER
+router.get('/user/:userId', (req, res) => {
+    const ownerId = req.params.userId;
+    database.table('orders_details as od')
+    .join([
+        {
+            table: 'orders as o',
+            on: 'o.orderId = od.order_id'
+        },
+        {
+            table: 'products as p',
+            on: 'p.productId = od.item'
+        },
+        {
+            table: 'users as u',
+            on: 'u.userId = o.buyer'
+        }
+        //, {
+        //     table: 'payment as pay',
+        //     on: 'pay.order_id = o.orderId'
+        // }
+    ])
+    .filter({'p.owner': ownerId})
+    .withFields([
+        'u.userId as uid', 'u.lastName',
+        'p.productid as pid', 'p.productName as title', 'p.discount', 'p.price', 'p.quantity', 'p.description', 'p.image',
+        'o.orderDate', 'orderId as id',
+        'od.quantity as odQuantity',
+        // 'pay.paymentId as payId', 'pay.paymentDate as payDate'
+    ])
+    .sort({id: 1})
+    .getAll()
+    .then(orders => {
+        if (orders.length > 0) {
+            res.status(200).json(
+                {
+                    count: orders.length,
+                    products: orders
+                });
+        } else {
+            res.json({message: 'No Order Found'});
+        }
+    })
+    .catch(err => console.log(err));
+})
 
 module.exports = router;
