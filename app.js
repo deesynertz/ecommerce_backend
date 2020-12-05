@@ -26,6 +26,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 const authRouter = require('./routes/auth');
 const usersRouter = require('./routes/users');
 const orderRouter = require('./routes/orders');
+const paymentRout = require('./routes/payment');
 const productsRouter = require('./routes/products');
 const categoriesRouter = require('./routes/categories');
 
@@ -42,6 +43,7 @@ const categoriesRouter = require('./routes/categories');
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/orders', orderRouter);
+app.use('/api/payment', paymentRout);
 app.use('/api/products', productsRouter);
 app.use('/api/categories', categoriesRouter);
 

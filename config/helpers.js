@@ -10,33 +10,23 @@ let conn = new Mysqli({
 });
 
 let db = conn.emit(false, '');
-const secret_Code = "1SBz93MsqTs7KgwARcB0I0ihpILIjk3w";
 
 module.exports = {
     database: db,
-    secret: secret_Code,
-    isPasswordAndUserMatch: async (req, res, next) => {
-        // const myPlaintextPassword = req.body.password;
-        // const myUsername = req.body.username;
-        //
-        // const login_user = await db.table('login').filter({$or: [{username: myUsername}]}).get();
-        // if (login_user) {
-        //     const match = await bcrypt.compare(myPlaintextPassword, login_user.password);
-        //     console.log(login_user.password);
-        //     if (match) {
-        //         req.username = login_user.username;
-        //         next();
-        //     } else {
-        //         res.status(401).json({
-        //             success: 0,
-        //             message: "Username or password incorrect"
-        //         });
-        //     }
-        // } else {
-        //     res.status(401).json({
-        //         success: 0,
-        //         message: "Username or password incorrect"
-        //     });
-        // }
+    secret: process.env.SECRET_CODE,
+    loadDataInPage: (req, res, next) => {
+        let page = (req.query.page !== undefined && req.query.page !== 0) ? req.query.page : 1;
+        const limit = (req.query.limit !== undefined && req.query.limit !== 0) ? req.query.limit : 10; // set limit of items per page
+        let startValue;
+        let endValue;
+        if (page > 0) {
+            startValue = (page * limit) - limit; // 0, 10, 20, 30
+            endValue = page * limit; // 10, 20, 30, 40
+        } else {
+            startValue = 0;
+            res.endValue = 10;
+        }
+        next();
+
     }
 }

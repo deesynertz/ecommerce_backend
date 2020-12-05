@@ -4,27 +4,8 @@ const router = express.Router();
 const helper = require('../config/helpers');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
-
-
-// RETURN ROLES EXCEPT FOR Admin
-router.get('/roles', (req, res) => {
-    helper.database.table('roles')
-        .sort({roleId: 1})
-        .filter ({ roleId : {$gt : 1}})
-        .getAll()
-        .then(roles => {
-            if (roles.length > 0) {
-                res.status(200).json({
-                    count: roles.length,
-                    roles: roles
-                });
-            } else {
-                res.json({message: "No any Role found"});
-            }
-        })
-})
-
-
+const nodemailer = require('nodemailer');
+const { callbackPromise } = require('nodemailer/lib/shared');
 
 
 // REGISTER ROUTE
@@ -69,10 +50,9 @@ router.post('/register', [
                         user_id: lastId,
                         role_id: role_id
                     }).catch(err => console.log(err));
-                res.status(201).json({
-                    success: 1,
-                    message: 'Registration successful.'
-                });
+                    
+                    // take care of mail activation
+                    // sendVerficationEmail();
             } else {
                 res.status(501).json({
                     success: 0,
@@ -83,8 +63,53 @@ router.post('/register', [
     }
 });
 
+async function sendVerficationEmail() {
+
+    // Generate test SMTP service account from ethereal.email
+    // Only needed if you don't have a real mail account for testing
+    // let testAccount = await nodemailer.createTestAccount();
+
+
+    // create reusable transporter object using the default SMTP transport
+    let transporter = nodemailer.createTransport({
+        host: "smtp.gmail.com",
+        port: 587,
+        secure: false, // true for 465, false for other ports
+        auth: {
+          user: process.env.MAIL_NAME, // generated ethereal user
+          pass: process.env.MAIL_PASSWORD, // generated ethereal password
+        },
+      });
+
+
+    let mailOption = {
+        from: `"Deesynertz"< ${process.env.MAIL_NAME} >`, // sender address
+        to: 'axetrixhub.gmail.com', // list of receivers
+        subject: "Activation Link", // Subject line
+        html: `<h1>Hi Axe</h1><b>
+        <h4>Thank you for joing us Please activate your account by clicking link below</h4><b>
+        <a href="http://localhost:3000/register">Activate</a>`, // html body
+    }
+
+    transporter.sendMail(mailOption, (error, info) => {
+        if(error) {
+            console.log(error);
+        }else {
+            console.log('Registration successful. <br>please Check your Email to activate your accout '+ info.response);
+        }
+    })
+
+
+
+     
+}
+
+  
+sendVerficationEmail().catch(console.error);
+
 // LOGIN ROUTE
-router.post('/login', async (req, res) =>{
+router.post('/login', async (req, res) => {
+
     const myPlaintextPassword = req.body.password;
     const myUsername = req.body.username;
 
@@ -93,35 +118,29 @@ router.post('/login', async (req, res) =>{
     if (login_user) {
         const match = await bcrypt.compare(myPlaintextPassword, login_user.password);
         if (match) {
-            let token = jwt.sign(
-                {state: 'true', username: req.body.username},
-                helper.secret, {
-                    algorithm: 'HS512',
-                    expiresIn: '1h'
-            });
-            res.status(201).json({
-                success_code: 1,
-                token: token,
-                auth: true,
-                role: login_user.role_id,
-                username: req.body.username
+            jwt.sign({
+                state: 'true', userId: login_user.user_id, role: login_user.role_id,
+                username: login_user.username
+            },
+            `${helper.secret}`,
+            {algorithm: 'HS512', expiresIn: '2h'},
+            (err, token) => {
+                res.json({ token:token });
             });
         } else {
             res.status(201).json({
-                success_code: 0,
                 message: "incorrect password!!"
             });
         }
     } else {
         res.status(201).json({
-            success_code: 0,
             message: "Username or password incorrect"
         });
     }
 })
 
-// FIND USER BY EMAIL
-router.get('/:email', (req, res) => {
+// TODO: HANDLE FIND USER BY EMAIL
+router.get('/email/:emailId', (req, res) => {
     const orderEmail = req.params.email;
     database.table('customer')
         .withFields(['email'])

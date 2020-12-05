@@ -1,11 +1,33 @@
 const express = require('express');
 const router = express.Router();
-const {database} = require('../config/helpers');
+const helper = require('../config/helpers');
+const checkAuth = require('../config/check-auth');
+
+
+// RETURN ROLES FOR Admin
+router.get('/roles', [checkAuth.userToken, checkAuth.verifyTheToken], (req, res) => {
+    helper.database.table('roles')
+    .sort({roleId: 1})
+    .getAll()
+    .then(roles => {
+        if (roles.length > 0) {
+            res.json({
+                count: roles.length,
+                roles: roles,
+            });
+        } else {
+            res.json({
+                count: roles.length,
+                message: "No any Role found"
+            });
+        }
+    })
+});
 
 /* GET users listing. */
-router.get('/', function (req, res) {
-    database.table('users')
-        .withFields(['username', 'email', 'fname', 'lname', 'age', 'role', 'id'])
+router.get('/', [checkAuth.userToken, checkAuth.verifyTheToken], (req, res) => {
+    helper.database.table('users')
+        .withFields(['userId', 'firstName', 'lastName', 'region', 'district', 'phone', 'email'])
         .getAll().then((list) => {
         if (list.length > 0) {
             res.json({users: list});
@@ -15,19 +37,98 @@ router.get('/', function (req, res) {
     }).catch(err => res.json(err));
 });
 
-/**
- * ROLE 777 = ADMIN
- * ROLE 555 = CUSTOMER
- */
+// RETURN ROLES EXCEPT admin FOR OTHERS
+router.get('/roles/others', (req, res) => {
+    helper.database.table('roles')
+    .sort({roleId: 1})
+    .filter({roleId: {$gt: 1}})
+    .getAll()
+    .then(roles => {
+        if (roles.length > 0) {
+            res.json({
+                count: roles.length,
+                roles: roles,
+            });
+        } else {
+            res.json({
+                count: roles.length,
+                message: "No any Role found"
+            });
+        }
+    })
+});
 
-/* GET ONE USER MATCHING ID */
-router.get('/:userId', (req, res) => {
+// GET PRODUCT BELONG TO USER
+router.get('/products/:userId', [checkAuth.userToken, checkAuth.verifyTheToken], (req, res) => {
+    let page = (req.query.page !== undefined && req.query.page !== 0) ? req.query.page : 1;
+    const limit = (req.query.limit !== undefined && req.query.limit !== 0) ? req.query.limit : 10; // set limit of items per page
+    let startValue;
+    let endValue;
+
+    if (page > 0) {
+        startValue = (page * limit) - limit; // 0, 10, 20, 30
+        endValue = page * limit; // 10, 20, 30, 40
+    } else {
+        startValue = 0;
+        endValue = 10;
+    }
+    const ownerId = req.params.userId;
+    helper.database.table('products as p')
+        .join([{
+            table: 'users as u',
+            on: `u.userId = p.owner`
+        },
+            {
+                table: 'categories as c',
+                on: 'c.categoryId = p.category'
+            }
+        ])
+        .filter({
+            'p.owner': ownerId
+        })
+        .withFields([
+            'c.name as category',
+            'p.productName as title', 'p.price', 'p.quantity',
+            'p.description', 'p.discount', 'p.image', 'p.productId as id'
+        ])
+        .slice(startValue, endValue)
+        .sort({
+            id: .1
+        })
+        .getAll()
+        .then(prods => {
+            if (prods.length > 0) {
+                res.status(200).json({
+                    count: prods.length,
+                    products: prods
+                });
+            } else {
+                res.json({
+                    message: `No products found from ${ownerId} ID`
+                });
+            }
+        })
+        .catch(err => console.log(err));
+});
+
+/* GET ONE USER PROFILE MATCHING ID */
+router.get('/profile/:userId', [checkAuth.userToken, checkAuth.verifyTheToken], (req, res) => {
     let userId = req.params.userId;
-    database.table('users').filter({id: userId})
-        .withFields(['username', 'email', 'fname', 'lname', 'age', 'role', 'id'])
+    helper.database.table('users as u')
+        .join([
+            {table: "login as l", on: `user_id = userId`},
+            {table: "roles as r", on: `roleId = role_id`}
+        ])
+        .filter({userId: userId})
+        .withFields([
+            'userId', 'firstName', 'lastName', 'region', 'district', 'phone', 'email',
+            'username', 'roleName'
+        ])
         .get().then(user => {
         if (user) {
-            res.json({user});
+            res.json({
+                user: user
+            });
         } else {
             res.json({message: `NO USER FOUND WITH ID : ${userId}`});
         }

@@ -1,71 +1,74 @@
 const express = require('express');
 const router = express.Router();
-const {database} = require('../config/helpers');
+const helper = require('../config/helpers');
+const checkAuth = require('../config/check-auth');
 
-/* GET ALL ORDER  */
-router.get('/', function (req, res) {
-    database.table('orders_details as od')
-        .join([
-            {
-                table: 'orders as o',
-                on: 'o.orderId = od.order_id'
-            },
-            {
-                table: 'products as p',
-                on: 'p.productId = od.item'
-            },
-            {
-                table: 'users as u',
-                on: 'u.userId = o.buyer'
-            }
-        ])
-        .withFields([
-            'u.userId as uid', 'u.lastName',
-            'p.productid as pid', 'p.productName as title', 'p.price', 'p.quantity', 'p.description', 'p.image',
-            'o.orderDate', 'orderId as id',
-            'od.quantity'
-        ])
-        .sort({id: 1})
-        .getAll()
-        .then(orders => {
-            if (orders.length > 0) {
-                res.status(200).json(orders);
-            } else {
-                res.json({message: 'No Order Found'});
-            }
-        })
-        .catch(err => console.log(err));
+
+/* GET ALL ORDER  
+    remember to create an interceptor fo admin recognition 
+*/
+
+router.get('/',[checkAuth.userToken, checkAuth.verifyTheToken], (req, res) =>{
+    helper.database.table('orders_details as od')
+    .join([
+        {table: 'orders as o', on: 'o.orderId = od.order_id'},
+        {table: 'products as p', on: 'p.productId = od.item'},
+        {table: 'users as u', on: 'u.userId = o.buyer'}
+    ])
+    .withFields([
+        'u.userId as uid', 'u.lastName',
+        'p.productId as pid', 'p.productName as title', 'p.price', 'p.quantity', 'p.description', 'p.image',
+        'o.orderDate', 'orderId as oid',
+        'od.quantity'
+    ])
+    .sort({oid: 1})
+    .getAll()
+    .then(orders => {
+        if (orders.length > 0) {
+            res.status(200).json(orders);
+        } else {
+            res.json({
+                message: 'No Order Found'
+            });
+        }
+    })
+    .catch(err => console.log(err));
 });
 
 /* GET A SINGLE ORDER */
-router.get('/:oid', (req, res) => {
+router.get('/:oid', [checkAuth.userToken, checkAuth.verifyTheToken], async (req, res) => {
     const orderId = req.params.oid;
-    database.table('orders_details as od')
+    helper.database.table('orders_details as od')
         .join([
-            {
-                table: 'orders as o',
-                on: 'o.id = od.order_id'
-            },
-            {
-                table: 'products as p',
-                on: 'p.productId = od.item'
-            },
-            {
-                table: 'users as u',
-                on: 'u.userId = o.buyer'
-            }
+            {table: 'orders as o', on: 'o.orderId = od.order_id'},
+            {table: 'products as p',on: 'p.productId = od.item'},
+            {table: 'users as u',on: 'u.userId = o.buyer'}
         ])
         .withFields([
             'u.userId as uid', 'u.lastName',
-            'p.productId as pid', 'p.productName as title', 'p.price', 'p.quantity', 'p.description', 'p.image',
-            'o.orderDate', 'o.id as id',
+            'p.productId as pid', 'p.productName as title', 'p.price', 'p.quantity', 'p.description', 'p.image', 'p.discount',
+            'o.orderDate', 'o.orderId as id', 'o.total',
             'od.quantity'
         ])
-        .filter({'o.id': orderId})
+        .filter({'o.orderId': orderId})
         .getAll()
         .then(orders => {
             if (orders.length > 0) {
-                res.status(200).json(orders);
+
+                helper.database.table('orders')
+                .withFields(['total']).filter({'orderId': orderId})
+                .get()
+                .then(orderTotal => {
+                    res.status(200).json({
+                        orders,
+                        orderTotal: orderTotal.total,
+                    });
+                })
+                .catch(err => console.log(err));
+
+                
+                
+                
             } else {
                 res.json({message: `No Order Found with order ID ${orderId}`});
             }
@@ -74,19 +77,18 @@ router.get('/:oid', (req, res) => {
 });
 
 /* PLACE A NEW ORDER */
-router.post('/new', (req, res) => {
+router.post('/create', [checkAuth.userToken, checkAuth.verifyTheToken], (req, res) => {
 
-    let {customerId, products} = req.body;
+    let {customerId, totalAmount, products} = req.body;
 
     if (customerId !== null && customerId > 0 && !isNaN(customerId)) {
-        database.table('orders')
-            .insert({
-                buyer: customerId
-            }).then(newOrderId => {
-
+        helper.database.table('orders').insert({buyer: customerId, total: totalAmount}).then(newOrderId => {
             if (newOrderId > 0) {
                 products.forEach(async (p) => {
-                    let data = await database.table('products').filter({productId: p.id}).withFields(['quantity']).get();
+                    let data = await helper.database.table('products')
+                        .filter({productId: p.id})
+                        .withFields(['quantity'])
+                        .get();
                     let inCart = p.incart;
 
                     //deduct the number of quantity after order placed in product column
@@ -100,83 +102,88 @@ router.post('/new', (req, res) => {
                     }
 
                     // INSERT ORDER DETAILS WITH RESPECT TO THE NEWLY GENERATED ORDER ID
-                    database.table('orders_details')
-                        .insert({order_id: newOrderId, item: p.id, quantity: inCart})
-                        .then(newID => {
-                            database.table('products').filter({productId: p.id})
-                                .update({quantity: data.quantity})
-                                .then(successNum => {
-                                })
-                                .catch(err => console.log(err));
+                    helper.database.table('orders_details')
+                        .insert({order_id: newOrderId, item: p.id, quantity: inCart}).then(newID => {
+                        helper.database.table('products').filter({productId: p.id}).update({
+                            quantity: data.quantity
+                        }).then(successNum => {
                         }).catch(err => console.log(err));
+                    }).catch(err => console.log(err));
                 });
             } else {
-                res.json({message: 'new order fails while adding order details', success: false})
+                res.json({
+                    success: false,
+                    message: 'new order fails while adding order details'
+                })
             }
             res.json({
-                message: `new order successfully  placed  with order id  ${newOrderId}`,
                 success: true,
+                message: `new order successfully  placed  with order id  ${newOrderId}`,
                 order_id: newOrderId,
                 products: products
             });
         }).catch(err => console.log(err));
     } else {
-        res.json({message: 'new order fails', success: false})
+        res.json({
+            success: false,
+            message: 'new order fails'
+        })
     }
-    // console.log(customerId, products);
+    console.log(customerId, products);
 });
-
-/* FAKE PAYMENT */
-router.post('/payment', (req, res) => {
-    setTimeout(() => {
-        res.status(200).json({success: true});
-    }, 3000);
-});
-
-
-
 
 // ALL ORDER BELONG TO SELLER
-router.get('/user/:userId', (req, res) => {
-    const ownerId = req.params.userId;
-    database.table('orders_details as od')
+router.get('/seller/:id', [checkAuth.userToken, checkAuth.verifyTheToken], (req, res) => {
+    // TODO: check is your token
+    const ownerId = req.params.id;
+    helper.database.table('orders_details as od')
     .join([
-        {
-            table: 'orders as o',
-            on: 'o.orderId = od.order_id'
-        },
-        {
-            table: 'products as p',
-            on: 'p.productId = od.item'
-        },
-        {
-            table: 'users as u',
-            on: 'u.userId = o.buyer'
-        }
-        //, {
-        //     table: 'payment as pay',
-        //     on: 'pay.order_id = o.orderId'
-        // }
+        {table: 'orders as o', on: 'o.orderId = od.order_id'},
+        {table: 'products as p', on: 'p.productId = od.item'},
+        {table: 'users as u', on: 'u.userId = o.buyer'}
     ])
     .filter({'p.owner': ownerId})
     .withFields([
-        'u.userId as uid', 'u.lastName',
+        'u.userId as buyerId', 'u.lastName',
         'p.productid as pid', 'p.productName as title', 'p.discount', 'p.price', 'p.quantity', 'p.description', 'p.image',
         'o.orderDate', 'orderId as id',
         'od.quantity as odQuantity',
-        // 'pay.paymentId as payId', 'pay.paymentDate as payDate'
     ])
     .sort({id: 1})
     .getAll()
     .then(orders => {
         if (orders.length > 0) {
-            res.status(200).json(
-                {
-                    count: orders.length,
-                    products: orders
-                });
+            res.status(200).json({
+                count: orders.length,
+                products: orders,
+            });
         } else {
             res.json({message: 'No Order Found'});
+        }
+    })
+    .catch(err => console.log(err));
+})
+
+// ALL ORDER BELONG TO BUYER
+router.get('/buyer/:id', [checkAuth.userToken, checkAuth.verifyTheToken], (req, res) => {
+    // TODO: check is your token
+    const buyerId = req.params.id;
+    helper.database.table('orders as o')
+    .filter({'buyer': buyerId})
+    .withFields(['orderId as id', 'orderDate', 'buyer', 'status'])
+    .sort({orderId: 1})
+    .getAll()
+    .then(orders => {
+        if (orders.length > 0) {
+            res.status(200).json({
+                count: orders.length,
+                orders: orders
+            });
+        } else {
+            res.json({
+                count: orders.length,
+                message: 'No Order Found'
+            });
         }
     })
     .catch(err => console.log(err));

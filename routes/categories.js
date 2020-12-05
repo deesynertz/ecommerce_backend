@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const {database} = require('../config/helpers');
+const helper = require('../config/helpers');
 
-/* GET ALL PRODUCT TYPE */
+// GET ALL PRODUCT TYPE
 router.get('/', function (req, res) {
     let page = (req.query.page !== undefined && req.query.page !== 0) ? req.query.page : 1;
     const limit = (req.query.limit !== undefined && req.query.limit !== 0) ? req.query.limit : 10;   // set limit of items per page
@@ -15,7 +15,8 @@ router.get('/', function (req, res) {
         startValue = 0;
         endValue = 10;
     }
-    database.table('categories')
+
+    helper.database.table('categories')
         .slice(startValue, endValue)
         .sort({categoryId: .1})
         .getAll()
@@ -32,8 +33,7 @@ router.get('/', function (req, res) {
         .catch(err => console.log(err));
 });
 
-/* USER */
-// TODO: POST PRODUCT TYPE
+// TODO: POST PRODUCT TYPE 
 
 // TODO: UPDATE PRODUCT TYPE
 
