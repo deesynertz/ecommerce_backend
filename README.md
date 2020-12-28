@@ -1,11 +1,25 @@
 ## NODE EXPRESS APP API
 
-This is Backend API for an ecommerce \
-contain three(3) routes. 
+This is Backend API for an e-commerce using Node JS Eppress 
+
+### Pre-requsite
+You need to navigate into public folder and inport database called  [vegfruits.sql]() in your server then continue
+
+username and password to user for test
+##### 1 Admin
+```
+username: deesyentz
+password: admindeo
+```
+##### 2 Normal user
+```
+username: harryalison
+password: harry
+```
 
 ### Installation
 
-Use the package manager [npm]() to install node modules.
+Use the package manager [npm]() to install node-modules dependences.
 
 ```bash
 npm install 
