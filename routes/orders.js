@@ -47,7 +47,7 @@ router.get('/:oid', [checkAuth.userToken, checkAuth.verifyTheToken], async (req,
         .withFields([
             'u.userId as uid', 'u.lastName',
             'p.productId as pid', 'p.productName as title', 'p.price', 'p.quantity', 'p.description', 'p.image', 'p.discount',
-            'o.orderDate', 'o.orderId as id', 'o.total',
+            'o.orderDate', 'o.orderId as id',
             'od.quantity'
         ])
         .filter({'o.orderId': orderId})

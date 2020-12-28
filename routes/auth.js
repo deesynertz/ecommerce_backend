@@ -2,111 +2,63 @@ const express = require('express');
 const {check, validationResult, body} = require('express-validator');
 const router = express.Router();
 const helper = require('../config/helpers');
+const authConfig = require('../config/check-auth');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
-const nodemailer = require('nodemailer');
-const { callbackPromise } = require('nodemailer/lib/shared');
+const { request } = require('express');
+
 
 
 // REGISTER ROUTE
 // TODO: HANDLE THE DUPLICATE EXIST EMAIL
-router.post('/register', [
-    check('email').isEmail().not().isEmpty().withMessage('Field can\'t be empty')
-        .normalizeEmail({all_lowercase: true}), body('email').custom(value => {
-        return helper.database.table('users')
-            .filter({$or: [{email: value}]})
-            .get()
-            .then(user => {
-                if (user) {
-                    console.log(user);
-                    return Promise.reject('Email already exists, choose another one.');
-                }
+router.post('/register', [authConfig.checkEmailExist], async (req, res) => {
+
+    let {firstName, lastName, region, district, phone, email, username} = req.body;
+    let password = await bcrypt.hash(req.body.password, 10)
+    let role_id = req.body.role_id;
+
+    helper.database.table('users').insert({
+        firstName: firstName,
+        lastName: lastName,
+        region: region,
+        district: district,
+        phone: phone,
+        email: email
+    }).then(lastId => {
+        if (lastId > 0) {
+
+            // INSERT USER IN LOGIN TABLE
+            helper.database.table('login')
+            .insert({
+                username: username,
+                password: password,
+                user_id: lastId,
+                role_id: role_id
             })
-    })
-], async (req, res) => {
-    const errors = validationResult(req);
+            .then(lastLogId => {
+                if(lastLogId > 0){
 
-    if (!errors.isEmpty()) {
-        return res.status(422).json({errors: errors.array()});
-    } else {
-        let {firstName, lastName, region, district, phone, email, username} = req.body;
-        let password = await bcrypt.hash(req.body.password, 10)
-        let role_id = req.body.role_id;
-
-        helper.database.table('users').insert({
-            firstName: firstName,
-            lastName: lastName,
-            region: region,
-            district: district,
-            phone: phone,
-            email: email
-        }).then(lastId => {
-            if (lastId > 0) {
-                // INSERT USER IN LOGIN TABLE
-                helper.database.table('login')
-                    .insert({
-                        username: username,
-                        password: password,
-                        user_id: lastId,
-                        role_id: role_id
-                    }).catch(err => console.log(err));
-                    
-                    // take care of mail activation
+                    // TODO: take care of mail activation
                     // sendVerficationEmail();
-            } else {
-                res.status(501).json({
-                    success: 0,
-                    message: 'Registration failed.'
-                });
-            }
-        }).catch(err => res.status(433).json({error: err}));
-    }
+                    res.json({
+                        success: 1,
+                        message: 'successful Registared.'
+                    })
+                }else{
+                    console.log('something went wrong during inserting user in login table')
+                }
+            }).catch(err => console.log(err));
+        } else {
+            res.status(501).json({
+                success: 0,
+                message: 'Registration failed.'
+            });
+        }
+    }).catch(err => res.status(433).json({error: err}));
+    
 });
 
-async function sendVerficationEmail() {
-
-    // Generate test SMTP service account from ethereal.email
-    // Only needed if you don't have a real mail account for testing
-    // let testAccount = await nodemailer.createTestAccount();
-
-
-    // create reusable transporter object using the default SMTP transport
-    let transporter = nodemailer.createTransport({
-        host: "smtp.gmail.com",
-        port: 587,
-        secure: false, // true for 465, false for other ports
-        auth: {
-          user: process.env.MAIL_NAME, // generated ethereal user
-          pass: process.env.MAIL_PASSWORD, // generated ethereal password
-        },
-      });
-
-
-    let mailOption = {
-        from: `"Deesynertz"< ${process.env.MAIL_NAME} >`, // sender address
-        to: 'axetrixhub.gmail.com', // list of receivers
-        subject: "Activation Link", // Subject line
-        html: `<h1>Hi Axe</h1><b>
-        <h4>Thank you for joing us Please activate your account by clicking link below</h4><b>
-        <a href="http://localhost:3000/register">Activate</a>`, // html body
-    }
-
-    transporter.sendMail(mailOption, (error, info) => {
-        if(error) {
-            console.log(error);
-        }else {
-            console.log('Registration successful. <br>please Check your Email to activate your accout '+ info.response);
-        }
-    })
-
-
-
-     
-}
-
   
-sendVerficationEmail().catch(console.error);
-
 // LOGIN ROUTE
 router.post('/login', async (req, res) => {
 

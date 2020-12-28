@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const helper = require('../config/helpers');
 const checkAuth = require('../config/check-auth');
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY
+const stripeSecretKey = checkAuth.stripeSecretKey;
 const stripe = require('stripe')(stripeSecretKey)
 
 
@@ -11,8 +11,7 @@ router.post('/new-offline',[checkAuth.userToken, checkAuth.verifyTheToken], asyn
     const amount  = req.body.amount;
     const orderNumber = req.body.orderNumber
     const token   = req.body.token;
-
-    stripeID = charge.source.id;
+    // stripeID = charge.source.id;
 
     helper.database.table('payment')
     .insert({order_id: orderNumber, amount: amount, stripe_id: token})
@@ -36,7 +35,7 @@ router.post('/new-offline',[checkAuth.userToken, checkAuth.verifyTheToken], asyn
             }else {
                 res.json({
                     success: false,
-                    message: 'error toupdate order status'
+                    message: 'error to update order status'
                 })
             }
         }).catch(err => console.log(err));
@@ -61,7 +60,7 @@ router.post('/new-online',[checkAuth.userToken, checkAuth.verifyTheToken], async
                 message: `${err}`
             });
         } else {
-            stripeID = charge.source.id;
+            stripeID = charge.id;
             helper.database.table('payment')
             .insert({order_id: orderNumber, amount: amount, stripe_id: stripeID})
             .then(newID => {
