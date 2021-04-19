@@ -67,28 +67,35 @@ router.post('/login', async (req, res) => {
 
     const login_user = await helper.database.table('login')
         .filter({$or: [{username: myUsername}]}).get();
-    if (login_user) {
-        const match = await bcrypt.compare(myPlaintextPassword, login_user.password);
-        if (match) {
-            jwt.sign({
-                state: 'true', userId: login_user.user_id, role: login_user.role_id,
-                username: login_user.username
-            },
-            `${helper.secret}`,
-            {algorithm: 'HS512', expiresIn: '2h'},
-            (err, token) => {
-                res.json({ token:token });
-            });
-        } else {
+        if(login_user){
+            if (login_user.username === myUsername) {
+                const match = await bcrypt.compare(myPlaintextPassword, login_user.password);
+                if (match) {
+                    jwt.sign({
+                        state: 'true', userId: login_user.user_id, role: login_user.role_id,
+                        username: login_user.username
+                    },
+                    `${helper.secret}`,
+                    {algorithm: 'HS512', expiresIn: '2h'},
+                    (err, token) => {
+                        res.json({ token:token });
+                    });
+                } else {
+                    res.status(201).json({
+                        message: "incorrect password!!"
+                    });
+                }
+            } else {
+                res.status(201).json({
+                    message: "Username or password incorrect"
+                });
+            }
+
+        }else{
             res.status(201).json({
-                message: "incorrect password!!"
+                message: "Username or password incorrect"
             });
         }
-    } else {
-        res.status(201).json({
-            message: "Username or password incorrect"
-        });
-    }
 })
 
 // TODO: HANDLE FIND USER BY EMAIL

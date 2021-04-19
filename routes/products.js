@@ -7,6 +7,7 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const checkAuth = require('../config/check-auth');
 const fs = require('fs')
+const crypto = require('crypto');
 
 /* GET ALL PRODUCTS */
 router.get('/', (req, res) => {
@@ -51,8 +52,11 @@ router.get('/', (req, res) => {
 
 const store = multer.diskStorage({
     destination: '../frontend/src/assets/img/products',
+
     filename: function (req, file, callback) {
-        return callback(null, `${file.originalname}_${Date.now()}${path.extname(file.originalname)}`);
+        // let customFile = crypto.randomBytes(18).toString('hex'),
+        let fileWithoutExt = file.originalname.split('.')[0];
+        return callback(null, `${fileWithoutExt}_${Date.now()}${path.extname(file.originalname)}`);
     }
 });
 
@@ -142,7 +146,6 @@ router.post('/image/new', [checkAuth.userToken, checkAuth.verifyTheToken], uploa
 // POST PRODUCT
 router.post('/add-new', [checkAuth.userToken, checkAuth.verifyTheToken], (req, res) => {
     // TODO: check is your token
-    console.log(req.body);
     let {productName, price, lifeTime, quantity, image, description, category, owner, discount} = req.body;
     helper.database.table('products')
         .insert({

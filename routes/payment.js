@@ -42,7 +42,7 @@ router.post('/new-offline',[checkAuth.userToken, checkAuth.verifyTheToken], asyn
     }).catch(err => console.log(err));
 })
 
-/* FAKE PAYMENT USING STRIPE */
+/* PAYMENT USING STRIPE */
 router.post('/new-online',[checkAuth.userToken, checkAuth.verifyTheToken], async (req, res) => {
     const orderNumber = req.body.orderNumber
     const amount = req.body.amount;

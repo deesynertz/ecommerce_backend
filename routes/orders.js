@@ -76,6 +76,41 @@ router.get('/:oid', [checkAuth.userToken, checkAuth.verifyTheToken], async (req,
         .catch(err => console.log(err));
 });
 
+/* DELETE ORDER */
+router.delete('/delete/:orderId', [checkAuth.userToken, checkAuth.verifyTheToken], (req, res) => {
+    let orderID = req.params.orderId;
+
+    if (orderID !== null && orderID > 0 && !isNaN(orderID)) {
+
+        helper.database.table('orders')
+        .filter({
+            'orderId': orderID
+        })
+        .remove()
+        .then(order => {
+            if (order) {
+                res.json({
+                    success: 1,
+                    message: `Order removed`
+                });
+            } else {
+                res.json({
+                    success: 0,
+                    message: `No order found with order id ${orderID}`
+                });
+            }
+        })
+
+    }else {
+        res.json({
+            success: false,
+            message: 'new order fails'
+        })
+    }
+
+
+});
+
 /* PLACE A NEW ORDER */
 router.post('/create', [checkAuth.userToken, checkAuth.verifyTheToken], (req, res) => {
 
@@ -129,7 +164,7 @@ router.post('/create', [checkAuth.userToken, checkAuth.verifyTheToken], (req, re
             message: 'new order fails'
         })
     }
-    console.log(customerId, products);
+    // console.log(customerId, products);
 });
 
 // ALL ORDER BELONG TO SELLER
